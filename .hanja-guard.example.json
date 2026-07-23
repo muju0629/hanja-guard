@@ -1,0 +1,6 @@
+{
+  "enabled": true,
+  "detect": ["hanja", "punct"],
+  "allow": ["日経平均", "上海", "恒生"],
+  "maxRetries": 2
+}

@@ -1,0 +1,17 @@
+{
+  "name": "hanja-guard",
+  "description": "Keep Claude Code's Korean answers free of stray Chinese and Japanese characters.",
+  "owner": {
+    "name": "muju0629",
+    "url": "https://github.com/muju0629"
+  },
+  "plugins": [
+    {
+      "name": "hanja-guard",
+      "source": "./",
+      "description": "Catches stray Chinese/Japanese characters in Claude's Korean answers and makes Claude rewrite them in Korean.",
+      "category": "productivity",
+      "tags": ["korean", "hanja", "chinese", "language", "hook", "한글", "한자"]
+    }
+  ]
+}

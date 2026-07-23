@@ -1,0 +1,16 @@
+{
+  "description": "hanja-guard — scans each finished answer for non-Korean characters and asks Claude to rewrite.",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/guard.mjs\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

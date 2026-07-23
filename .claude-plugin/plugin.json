@@ -1,0 +1,12 @@
+{
+  "name": "hanja-guard",
+  "version": "0.1.0",
+  "description": "Catches stray Chinese/Japanese characters in Claude's Korean answers and makes Claude rewrite them in Korean.",
+  "author": {
+    "name": "muju0629",
+    "url": "https://github.com/muju0629"
+  },
+  "homepage": "https://github.com/muju0629/hanja-guard",
+  "license": "MIT",
+  "keywords": ["korean", "hanja", "chinese", "language", "guard", "hook", "한글", "한자"]
+}
