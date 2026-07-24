@@ -24,10 +24,18 @@ const DETECTORS = {
 
 const DEFAULTS = {
   enabled: true,
+  prevent: true,
   detect: ["hanja", "punct"],
   allow: [],
   maxRetries: 2,
 };
+
+/** Injected before generation on Korean turns — layer 1 (prevention). */
+const REMINDER =
+  "[hanja-guard] 답변은 한국어로 작성하세요. 한자나 중국어 전각 문장부호(，。？！)를 섞지 마세요. " +
+  "코드, 명령어, 파일 경로, 고유명사 원문 표기는 예외입니다.";
+
+const HANGUL = /[가-힣ㄱ-ㅎㅏ-ㅣ]/u;
 
 /** Project config wins over user config. */
 function loadConfig(cwd) {
@@ -110,6 +118,17 @@ export function scan(text, cfg, allowed = new Set()) {
   return hits;
 }
 
+/**
+ * Layer 1 decides per turn, so the reminder costs nothing on turns it can't help.
+ * Remind only when the user is writing Korean and has not asked for the very
+ * characters we would flag — otherwise a request about 日経平均 gets nagged.
+ */
+export function shouldRemind(prompt, cfg) {
+  if (!HANGUL.test(prompt)) return false;
+  const allowed = new Set((cfg.allow || []).join(""));
+  return scan(stripCode(prompt), cfg, allowed).size === 0;
+}
+
 function buildReason(hits) {
   const byLabel = new Map();
   for (const [ch, label] of hits) {
@@ -136,7 +155,31 @@ const readStdin = async () => {
   return data;
 };
 
-async function main() {
+/** Layer 1 — UserPromptSubmit: inject the reminder before Claude generates. */
+async function promptHook() {
+  let input = {};
+  try {
+    input = JSON.parse(await readStdin());
+  } catch {
+    process.exit(0);
+  }
+
+  const cfg = loadConfig(input.cwd);
+  if (!cfg.enabled || !cfg.prevent || process.env.HANJA_GUARD === "off") process.exit(0);
+  if (!shouldRemind(input.prompt || "", cfg)) process.exit(0);
+
+  console.log(
+    JSON.stringify({
+      hookSpecificOutput: {
+        hookEventName: "UserPromptSubmit",
+        additionalContext: REMINDER,
+      },
+    }),
+  );
+}
+
+/** Layer 2 — Stop: catch whatever slipped through and ask for a rewrite. */
+async function stopHook() {
   let input = {};
   try {
     input = JSON.parse(await readStdin());
@@ -220,6 +263,17 @@ function selfTest() {
     { name: "가나(옵션 켜면 탐지)", answer: "こんにちは", prompt: "인사", expect: true, detect: ["hanja", "punct", "kana"] },
   ];
 
+  // Layer 1: which turns get the reminder injected
+  const reminders = [
+    { name: "한국어 질문", prompt: "코스피 오늘 어때?", expect: true },
+    { name: "한글 자모만", prompt: "ㅇㅋ 고고", expect: true },
+    { name: "영어 질문", prompt: "what is this?", expect: false },
+    { name: "한자를 직접 물어봄", prompt: "日経平均 시황 써줘", expect: false },
+    { name: "중국어 질문", prompt: "这是什么", expect: false },
+    { name: "allow 목록 한자", prompt: "上海 증시 알려줘", expect: true, allow: ["上海"] },
+    { name: "코드블록 속 한자", prompt: "이거 봐줘\n```py\nx='中文'\n```", expect: true },
+  ];
+
   let failed = 0;
   for (const c of cases) {
     const cfg = { ...DEFAULTS, detect: c.detect || DEFAULTS.detect, allow: c.allow || [] };
@@ -229,11 +283,21 @@ function selfTest() {
     const ok = got === c.expect;
     if (!ok) failed++;
     const detail = hits.size ? ` [${[...hits.keys()].join(" ")}]` : "";
-    console.log(`${ok ? "PASS" : "FAIL"}  ${c.name}${detail}`);
+    console.log(`${ok ? "PASS" : "FAIL"}  [탐지] ${c.name}${detail}`);
   }
-  console.log(`\n${cases.length - failed}/${cases.length} passed`);
+  for (const c of reminders) {
+    const cfg = { ...DEFAULTS, allow: c.allow || [] };
+    const got = shouldRemind(c.prompt, cfg);
+    const ok = got === c.expect;
+    if (!ok) failed++;
+    console.log(`${ok ? "PASS" : "FAIL"}  [예방] ${c.name} → ${got ? "주입" : "생략"}`);
+  }
+
+  const total = cases.length + reminders.length;
+  console.log(`\n${total - failed}/${total} passed`);
   process.exit(failed ? 1 : 0);
 }
 
 if (process.argv.includes("--selftest")) selfTest();
-else await main();
+else if (process.argv[2] === "prompt") await promptHook();
+else await stopHook();
