@@ -85,13 +85,20 @@ Claude:  하나의 순환 구조로 묶어야 한다는 게 요점이다.
 
 ## 어떻게 동작하나
 
-Claude Code는 답변이 끝나면 `Stop` 훅(답변이 끝날 때 실행되는 프로그램)을 부릅니다. 이 훅이 방금 나온 답변을 읽고 문제를 찾으면 이렇게 돌려줍니다.
+두 군데에서 검사합니다.
 
-```json
-{ "decision": "block", "reason": "…쉬운 말로 다시 쓰세요…" }
+**1. 답변이 끝난 뒤** — `Stop` 훅(답변이 끝날 때 실행되는 프로그램)이 방금 나온 답변을 읽고, 문제를 찾으면 `{"decision":"block"}`을 돌려줍니다. Claude가 **같은 자리에서** 답변을 다시 씁니다.
+
+**2. 도구를 실행하기 직전** — `PreToolUse` 훅이 도구에 넘길 내용을 미리 검사합니다. 깨진 글자가 있으면 실행을 막고 고치게 합니다. 파일에 쓰는 내용, 질문 상자에 띄우는 글이 여기 해당합니다.
+
+```
+답변 글    : 만들어지는 대로 화면에 나감 → 나온 뒤에 고침
+도구 내용물 : 실행 전에 검사 가능        → 보이기 전에 막음
 ```
 
-그러면 Claude가 **같은 자리에서** 답변을 다시 씁니다.
+**도구 내용물에는 `깨진 글자`만 검사합니다.** 한자 검사를 걸면 안 됩니다 — 코드에 중국어 문자열을 넣는 건 정상 작업이고, 이 플러그인 자기 파일에도 시험용 `上昇`이 들어 있어서 **플러그인을 고치는 것 자체가 막혀버립니다.**
+
+작업이 멈추는 일은 없습니다. 같은 세션에서 2번 막고도 안 고쳐지면 3번째는 그냥 통과시킵니다.
 
 ---
 
@@ -171,7 +178,7 @@ PASS  괄호로 설명함
 
 깔기 전에 알아두면 좋은 것들.
 
-- **답이 나온 "뒤"에 고칩니다.** Claude Code가 부를 수 있는 훅은 9가지인데, 답변이 쓰이는 도중에 걸리는 건 없습니다. 글자는 만들어지는 대로 화면에 나오기 때문에 중간에 막을 수 없습니다. 잘못된 답이 잠깐 보이고, 곧바로 고친 답이 나옵니다.
+- **답변 글은 나온 "뒤"에 고칩니다.** Claude Code가 부를 수 있는 훅은 9가지인데, 답변이 쓰이는 도중에 걸리는 건 없습니다. 글자는 만들어지는 대로 화면에 나오기 때문에 중간에 막을 수 없습니다. 잘못된 답이 잠깐 보이고, 곧바로 고친 답이 나옵니다. (도구에 넘기는 내용은 예외로, 실행 전에 막을 수 있습니다.)
 - **고칠 때 답변을 한 번 더 만듭니다.** 그만큼 비용이 조금 더 듭니다.
 - **어색한 문장은 못 잡습니다.** 한글로만 쓰였는데 번역한 것처럼 어색한 문장은 규칙으로 못 찾습니다. 이건 앞으로도 어려울 것 같습니다.
 - **드문 외래어는 잘못 잡을 수 있습니다.** `똠`처럼 표준에 없는 글자를 쓰는 말이 있습니다. `allow`에 넣으면 됩니다.
@@ -192,7 +199,11 @@ Claude:  …게 골자다. 기본은 꿐져 두고 CJK 범위 regex를 고쳤다
 Claude:  …게 요점이다. 기본은 꺼져 두고, 한자를 찾는 규칙(정규식)을 고쳤다.
 ```
 
-One Node script on a `Stop` hook. No API calls, no dependencies, **0 tokens** of context.
+One Node script on two hooks. No API calls, no dependencies, **0 tokens** of context.
+
+**Two checkpoints.** A `Stop` hook reads the finished answer and returns `{"decision":"block"}` so Claude rewrites it. A `PreToolUse` hook inspects tool arguments *before* the tool runs — file contents, prompt-dialog text — and refuses broken syllables before anyone sees them. Answer text streams straight to the terminal so it can only be fixed afterwards; tool arguments can be stopped in advance.
+
+Only the `broken` check runs on tool arguments. Hanja must not: writing Chinese into a file is often deliberate, and this plugin's own test cases contain 上昇 — checking hanja on `Write` would make the plugin uneditable. Work never wedges either: after two refusals in a session the third call goes through.
 
 ### What it checks
 

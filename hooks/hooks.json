@@ -1,12 +1,24 @@
 {
-  "description": "hanja-guard — scans each finished answer for non-Korean characters and makes Claude rewrite it.",
+  "description": "hanja-guard — stops broken syllables before a tool runs, and rewrites answers that are hard to read in Korean.",
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/guard.mjs\" pretool",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/guard.mjs\"",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/guard.mjs\" stop",
             "timeout": 10
           }
         ]

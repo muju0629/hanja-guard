@@ -251,6 +251,80 @@ const readStdin = async () => {
   return data;
 };
 
+/**
+ * PreToolUse — runs before a tool executes, so a broken syllable in a tool
+ * argument can be stopped before anyone sees it. Answer text cannot be caught
+ * this way because it streams straight to the terminal; tool arguments can.
+ *
+ * Only the `broken` check applies here. Hanja must not: writing Chinese into
+ * a file is often deliberate, and this plugin's own test cases contain 上昇 —
+ * checking hanja on Write would make the plugin uneditable.
+ */
+async function preToolHook() {
+  let input = {};
+  try {
+    input = JSON.parse(await readStdin());
+  } catch {
+    process.exit(0);
+  }
+
+  const cfg = loadConfig(input.cwd);
+  if (!cfg.enabled || process.env.HANJA_GUARD === "off") process.exit(0);
+  if (!(cfg.detect || []).includes("broken")) process.exit(0);
+
+  const text = typeof input.tool_input === "string" ? input.tool_input : JSON.stringify(input.tool_input ?? "");
+  const allowed = (cfg.allow || []).join(" ");
+  const hits = DETECTORS.broken.find(text).filter((ch) => !allowed.includes(ch));
+
+  const stateFile = path.join(os.tmpdir(), `hanja-guard-pre-${input.session_id || "session"}.json`);
+  if (hits.length === 0) {
+    try {
+      fs.unlinkSync(stateFile);
+    } catch {
+      /* nothing to clear */
+    }
+    process.exit(0);
+  }
+
+  // Never wedge the session: after a few refusals, let the call through.
+  let attempt = 0;
+  try {
+    attempt = JSON.parse(fs.readFileSync(stateFile, "utf8")).n || 0;
+  } catch {
+    /* first refusal for this session */
+  }
+  attempt++;
+
+  const chars = [...new Set(hits)].join(" ");
+  if (attempt > cfg.maxRetries) {
+    try {
+      fs.unlinkSync(stateFile);
+    } catch {
+      /* nothing to clear */
+    }
+    console.log(
+      JSON.stringify({
+        systemMessage: `🛡 hanja-guard: 깨진 글자(${chars})가 남았지만 ${cfg.maxRetries}회 후 통과시킵니다`,
+      }),
+    );
+    process.exit(0);
+  }
+
+  fs.writeFileSync(stateFile, JSON.stringify({ n: attempt }));
+  console.log(
+    JSON.stringify({
+      hookSpecificOutput: {
+        hookEventName: "PreToolUse",
+        permissionDecision: "deny",
+        permissionDecisionReason:
+          `${input.tool_name} 입력에 한국어에 없는 글자가 있습니다: ${chars}\n` +
+          "오타로 보입니다. 올바른 글자로 고쳐서 다시 실행하세요. 내용은 바꾸지 마세요.",
+      },
+      systemMessage: `🛡 hanja-guard: ${input.tool_name} 입력의 깨진 글자 감지 (${chars}) → 고쳐서 다시 ${attempt}/${cfg.maxRetries}`,
+    }),
+  );
+}
+
 async function main() {
   let input = {};
   try {
@@ -371,4 +445,5 @@ function selfTest() {
 }
 
 if (process.argv.includes("--selftest")) selfTest();
+else if (process.argv[2] === "pretool") await preToolHook();
 else await main();
