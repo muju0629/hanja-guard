@@ -2,7 +2,7 @@
 
 # hanja-guard 🛡
 
-**Claude가 한국어 답변에 한자 섞는 거, 자동으로 고쳐줍니다.**
+**Claude가 한국어 답변에 이상하고 어색한 단어들을 교정합니다.**
 
 [![version](https://img.shields.io/badge/version-0.5.1-1B2A5B)](https://github.com/muju0629/hanja-guard/releases)
 [![context cost](https://img.shields.io/badge/컨텍스트%20비용-0%20토큰-brightgreen)](#토큰-얼마나-더-쓰나)
