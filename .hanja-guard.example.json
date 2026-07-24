@@ -1,6 +1,6 @@
 {
   "enabled": true,
-  "detect": ["hanja", "punct"],
-  "allow": ["日経平均", "上海", "恒生"],
+  "detect": ["hanja", "punct", "broken", "hard", "jargon"],
+  "allow": ["日経平均", "上海", "똠양꿍"],
   "maxRetries": 2
 }
