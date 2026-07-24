@@ -1,7 +1,7 @@
 {
   "name": "hanja-guard",
-  "version": "0.2.0",
-  "description": "Two-layer guard: reminds Claude to answer in Korean before it generates, and rewrites stray Chinese characters that slip through.",
+  "version": "0.3.0",
+  "description": "Inspects each finished answer and makes Claude rewrite it when Chinese characters leak into Korean.",
   "author": {
     "name": "muju0629",
     "url": "https://github.com/muju0629"

@@ -9,7 +9,7 @@
     {
       "name": "hanja-guard",
       "source": "./",
-      "description": "Two-layer guard: reminds Claude to answer in Korean before it generates, and rewrites stray Chinese characters that slip through.",
+      "description": "Inspects each finished answer and makes Claude rewrite it when Chinese characters leak into Korean.",
       "category": "productivity",
       "tags": ["korean", "hanja", "chinese", "language", "hook", "한글", "한자"]
     }

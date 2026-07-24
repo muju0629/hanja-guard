@@ -1,23 +1,12 @@
 {
-  "description": "hanja-guard — layer 1 reminds Claude before it answers; layer 2 catches what slipped through and asks for a rewrite.",
+  "description": "hanja-guard — scans each finished answer for non-Korean characters and makes Claude rewrite it.",
   "hooks": {
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/guard.mjs\" prompt",
-            "timeout": 10
-          }
-        ]
-      }
-    ],
     "Stop": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/guard.mjs\" stop",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/guard.mjs\"",
             "timeout": 10
           }
         ]
