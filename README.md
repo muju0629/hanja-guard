@@ -152,6 +152,57 @@ Claude:  하나의 순환 구조로 묶어야 한다는 게 요점이다.
 
 ---
 
+## 토큰을 얼마나 더 쓰나 (실측)
+
+결국 중요한 건 "귀찮음을 줄이는 대가로 얼마를 더 내느냐"입니다. 추정하지 않고 실제로 쟀습니다.
+
+### 평소: 0 토큰
+
+훅은 대화 내용에 들어가지 않습니다. 플러그인을 깔기 전과 후의 대화 크기가 **똑같습니다.**
+
+```
+$ claude plugin details hanja-guard
+  Always-on:   ~0 tok   added to every session
+
+실측: 플러그인 있을 때도 없을 때도 대화 크기 18,785 토큰으로 동일
+```
+
+**검사에 걸리지 않는 답변은 비용이 0원입니다.** 이게 이 도구의 핵심입니다.
+
+### 교정이 발동할 때: 1턴 추가
+
+같은 질문을 검사만 켜고 꺼서 비교했습니다.
+
+| | 검사 끔 | 검사 켬 (발동) | 차이 |
+|---|---|---|---|
+| 턴 수 | 1 | 2 | **+1** |
+| 출력 토큰 | 4 | 325 | **+321** |
+| 비용 | $0.1791 | $0.2072 | **+$0.028 (+15.7%)** |
+
+다시 쓰라는 지시문은 **195자**입니다. 답변을 한 번 더 만드는 비용이 대부분을 차지합니다.
+
+> 이건 **가장 나쁜 경우**입니다. 일부러 "한자로만 써줘"라고 시켜놓고 검사를 켠 것이라, 검사가 사용자 의도와 싸우다가 2번 막고 포기했습니다. 보통은 `上昇`을 `상승`으로 바꾸는 정도라 답변 길이만큼만 더 듭니다.
+
+### 도구 실행을 막을 때: 훨씬 쌈
+
+답변을 다시 만들지 않고 도구 호출만 다시 하므로 비용이 훨씬 적습니다. 지시문은 약 80자입니다.
+
+실행 시간은 **도구 호출 1회당 58밀리초** 늘어납니다(20회 평균). 파일 하나 읽고 쓰는 정도에서는 체감되지 않습니다.
+
+### 아직 모르는 것
+
+**얼마나 자주 발동하는지는 재지 못했습니다.** 이게 사실 제일 중요한 숫자인데, 며칠 실제로 써봐야 나옵니다. 참고로 실제 한국어 문서 211개에서 `어려운 말`이 들어 있던 건 **9개(4.3%)**, `깨진 글자`는 **0개**였습니다.
+
+발동 빈도가 10%라면 전체 비용은 대략 1.5% 늘어납니다. 20%면 3% 정도입니다. 직접 써보시고 체감이 다르면 [알려주세요](https://github.com/muju0629/hanja-guard/issues).
+
+### 아껴 쓰는 법
+
+- `detect`에서 필요 없는 검사를 빼면 발동 자체가 줄어듭니다
+- 자주 걸리는 말은 `allow`에 넣으세요
+- `maxRetries`를 `1`로 낮추면 최대 비용이 절반이 됩니다
+
+---
+
 ## 직접 확인해보기
 
 ```bash
@@ -246,6 +297,26 @@ The built-in setting is an **instruction** before generation; hanja-guard is an 
 ```
 
 **Tune `HARD_WORDS` to your field.** `저해`/`발현` were removed from the defaults because *저해제* (inhibitor) and *유전자 발현* (gene expression) are correct biotech terms.
+
+### What it costs (measured, not estimated)
+
+**When nothing is flagged: zero.** Hooks never enter the context — conversation size is byte-identical with and without the plugin installed (18,785 tokens either way), and `claude plugin details` reports `Always-on: ~0 tok`.
+
+**When a rewrite fires**, measured by running the same prompt with checks off and on:
+
+| | checks off | checks on (fired) | delta |
+|---|---|---|---|
+| Turns | 1 | 2 | **+1** |
+| Output tokens | 4 | 325 | **+321** |
+| Cost | $0.1791 | $0.2072 | **+$0.028 (+15.7%)** |
+
+The rewrite instruction itself is 195 characters; regenerating the answer is the bulk of it. That run is a **worst case** — the prompt deliberately demanded hanja, so the guard fought the request, refused twice, then gave up.
+
+**When a tool call is refused**, cost is much lower: only the tool call is retried, not the whole answer. Runtime overhead is **58 ms per tool call** (mean of 20).
+
+**Not yet measured: how often it fires.** That is the number that actually settles the tradeoff and it needs real-world days. For reference, across 211 real Korean documents, `hard` matched 9 (4.3%) and `broken` matched 0. At a 10% fire rate the overall bill rises roughly 1.5%.
+
+To spend less: drop unused checks from `detect`, add frequent flags to `allow`, or set `maxRetries` to `1` to halve the worst case.
 
 ### Test it
 

@@ -1,6 +1,6 @@
 {
   "name": "hanja-guard",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Checks Claude's Korean answers for Chinese characters, broken syllables, needlessly hard words, and unexplained jargon — and makes Claude rewrite.",
   "author": {
     "name": "muju0629",
